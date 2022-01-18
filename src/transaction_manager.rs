@@ -1,15 +1,13 @@
 use csv::{ReaderBuilder, Trim, Writer};
 use std::collections::HashMap;
 use std::error::Error;
+use std::io;
 
 use crate::client::*;
 use crate::transaction::*;
 use crate::transaction_error::*;
 
-pub fn process_transactions(
-    transactions_file_path: &str,
-    accounts_file_path: &str,
-) -> Result<(), Box<dyn Error>> {
+pub fn process_transactions(transactions_file_path: &str) -> Result<(), Box<dyn Error>> {
     let mut clients: HashMap<u16, Client> = HashMap::new();
     let reader = ReaderBuilder::new()
         .trim(Trim::All)
@@ -18,15 +16,12 @@ pub fn process_transactions(
         let transaction: Transaction = next_transaction_result?;
         update_client(&mut clients, transaction)?;
     }
-    write_accounts(clients, accounts_file_path)?;
+    write_accounts(clients)?;
     Ok(())
 }
 
-fn write_accounts(
-    clients: HashMap<u16, Client>,
-    accounts_file_path: &str,
-) -> Result<(), Box<dyn Error>> {
-    let mut writer = Writer::from_path(accounts_file_path)?;
+fn write_accounts(clients: HashMap<u16, Client>) -> Result<(), Box<dyn Error>> {
+    let mut writer = Writer::from_writer(io::stdout());
     for (_, client) in clients {
         writer.serialize(client)?;
     }
