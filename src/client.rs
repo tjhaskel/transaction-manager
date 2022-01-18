@@ -32,7 +32,7 @@ pub struct Client {
     pub transactions: BTreeMap<u32, Vec<Transaction>>,
 }
 
-/// Create a new client with default settings, then apply their first transation.
+/// Create a new client with default settings, then apply their first transaction.
 /// ```
 /// use transaction_manager::transaction::*;
 /// use transaction_manager::client::*;

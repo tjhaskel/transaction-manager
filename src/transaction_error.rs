@@ -13,9 +13,9 @@ pub enum TransactionErrorTypes {
     MissingRequiredAmount,
     /// If dispute, resolve, or chargeback are attempted with an amount specified.
     HasMeaninglessAmount,
-    /// If withdrawal is atempted with amount greater than available funds.
+    /// If withdrawal is attempted with amount greater than available funds.
     InsufficientFunds,
-    /// If a client is initialized with any transaction type other tha deposit.
+    /// If a client is initialized with any transaction type other than deposit.
     FirstTransactionNotDeposit,
     /// If any transaction is attempted on a locked account.
     AccountLocked,
@@ -23,7 +23,7 @@ pub enum TransactionErrorTypes {
     Unspecified,
 }
 
-/// A transaction error has a type and captures the transaction/account environment in which it occured.
+/// A transaction error has a type and captures the transaction/account environment in which it occurred.
 #[derive(Debug)]
 pub struct TransactionError {
     /// One of the specified error types, or unspecified.
