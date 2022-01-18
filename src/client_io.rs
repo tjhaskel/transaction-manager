@@ -3,7 +3,7 @@ use std::io::prelude::*;
 
 use crate::client::*;
 
-pub fn initialize_stream(accounts_file_name: &str) -> () {
+pub fn initialize_writer(accounts_file_name: &str) -> () {
     println!("{}", accounts_file_name);
 }
 

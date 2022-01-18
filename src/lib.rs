@@ -13,5 +13,8 @@ pub mod transaction;
 /// Reads from a csv file containing transactions
 pub mod transaction_io;
 
+/// Controller module that performs business logic based on input transactions and modifies client accounts accordingly. 
+pub mod transaction_manager;
+
 #[cfg(test)]
 mod tests;

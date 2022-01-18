@@ -1,3 +1,5 @@
+use transaction_manager::transaction_manager::*;
+
 fn main() {
-    println!("Hello, world!");
+    process_transactions("file");
 }
