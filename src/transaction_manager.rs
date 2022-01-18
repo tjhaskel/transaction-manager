@@ -7,6 +7,9 @@ use crate::client::*;
 use crate::transaction::*;
 use crate::transaction_error::*;
 
+/// Reads from the given transaction csv file path, applying each transaction one at a time to the client account environment.
+/// Once all transactions have been processed, the client account environment is serialized and written to stdout.
+/// May produce an error if reading, serializing, or writing fails, or if there is any invalid transaction.
 pub fn process_transactions(transactions_file_path: &str) -> Result<(), Box<dyn Error>> {
     let mut clients: HashMap<u16, Client> = HashMap::new();
     let reader = ReaderBuilder::new()
@@ -20,15 +23,8 @@ pub fn process_transactions(transactions_file_path: &str) -> Result<(), Box<dyn 
     Ok(())
 }
 
-fn write_accounts(clients: HashMap<u16, Client>) -> Result<(), Box<dyn Error>> {
-    let mut writer = Writer::from_writer(io::stdout());
-    for (_, client) in clients {
-        writer.serialize(client)?;
-    }
-    writer.flush()?;
-    Ok(())
-}
-
+/// Attempt to apply the given transaction to the given client account environment.
+/// May produce a TransactionError if any rules are violated.
 fn update_client(
     clients: &mut HashMap<u16, Client>,
     transaction: Transaction,
@@ -38,5 +34,16 @@ fn update_client(
         None => initialize_client(transaction)?,
     };
     clients.insert(updated_client.id, updated_client);
+    Ok(())
+}
+
+/// Serialize the given client account environment to csv format and write it to stdout
+/// May produce an error if there is a problem serializing the data or writing.
+fn write_accounts(clients: HashMap<u16, Client>) -> Result<(), Box<dyn Error>> {
+    let mut writer = Writer::from_writer(io::stdout());
+    for (_, client) in clients {
+        writer.serialize(client)?;
+    }
+    writer.flush()?;
     Ok(())
 }
