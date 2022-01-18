@@ -15,8 +15,6 @@ pub enum TransactionErrorTypes {
     HasMeaninglessAmount,
     /// If withdrawal is atempted with amount greater than available funds.
     InsufficientFunds,
-    /// If dispute, resolve, or chargeback are attempted with invalid transaction id referenced.
-    InvalidIdReferenced,
     /// If a client is initialized with any transaction type other tha deposit.
     FirstTransactionNotDeposit,
     /// If any transaction is attempted on a locked account.
@@ -52,9 +50,6 @@ impl fmt::Display for TransactionError {
             TransactionErrorTypes::InsufficientFunds => "Insufficient funds for transaction.",
             TransactionErrorTypes::FirstTransactionNotDeposit => {
                 "First transaction is not deposit."
-            }
-            TransactionErrorTypes::InvalidIdReferenced => {
-                "Dispute, resolve, or chargeback with invalid id."
             }
             TransactionErrorTypes::AccountLocked => {
                 "Attempted to apply transaction to locked account."

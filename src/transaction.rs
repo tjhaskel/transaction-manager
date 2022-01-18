@@ -1,7 +1,7 @@
 use serde::Deserialize;
 
 /// Represent the types of transactions accepted
-#[derive(Clone, Debug, Deserialize)]
+#[derive(Clone, Debug, Deserialize, PartialEq)]
 #[serde(rename_all = "lowercase")]
 pub enum TransactionType {
     /// Adding funds.

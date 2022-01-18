@@ -123,6 +123,7 @@ impl Client {
     }
 
     /// If the given transaction ID exists in the log, move the amount specified in that deposit from available to held.
+    /// If the referenced transaction ID does not exist, ignore and log the the transaction.
     fn apply_dispute(mut self, transaction: Transaction) -> Result<Client, TransactionError> {
         if let Some(_) = transaction.amount {
             return Err(TransactionError {
@@ -135,18 +136,13 @@ impl Client {
             let amount = related_transactions[0].amount.unwrap();
             self.available -= amount;
             self.held += amount;
-        } else {
-            return Err(TransactionError {
-                error_type: TransactionErrorTypes::InvalidIdReferenced,
-                transaction: transaction,
-                client: self,
-            });
         }
         self.log_transaction(transaction);
         Ok(self)
     }
 
-    /// If the given transaction ID exists in the log, move the amount specified in that deposit from held to available.
+    /// If the given transaction ID exists in the log and a dispute was the last transaction, move the amount specified in that deposit from held to available.
+    /// If the referenced transaction ID does not exist or does not reference a dispute, ignore and log the the transaction.
     fn apply_resolve(mut self, transaction: Transaction) -> Result<Client, TransactionError> {
         if let Some(_) = transaction.amount {
             return Err(TransactionError {
@@ -156,21 +152,20 @@ impl Client {
             });
         }
         if let Some(related_transactions) = self.transactions.get(&transaction.id) {
-            let amount = related_transactions[0].amount.unwrap();
-            self.held -= amount;
-            self.available += amount;
-        } else {
-            return Err(TransactionError {
-                error_type: TransactionErrorTypes::InvalidIdReferenced,
-                transaction: transaction,
-                client: self,
-            });
+            if related_transactions[related_transactions.len() - 1].transaction_type
+                == TransactionType::Dispute
+            {
+                let amount = related_transactions[0].amount.unwrap();
+                self.held -= amount;
+                self.available += amount;
+            }
         }
         self.log_transaction(transaction);
         Ok(self)
     }
 
-    /// If the given transaction ID exists in the log, subrtract the amount specified in that deposit from held and total, then lock the account.
+    /// If the given transaction ID exists in the log and a dispute was the last transaction, subrtract the amount specified in that deposit from held and total, then lock the account.
+    /// If the referenced transaction ID does not exist or does not reference a dispute, ignore and log the the transaction
     fn apply_chargeback(mut self, transaction: Transaction) -> Result<Client, TransactionError> {
         if let Some(_) = transaction.amount {
             return Err(TransactionError {
@@ -180,16 +175,14 @@ impl Client {
             });
         }
         if let Some(related_transactions) = self.transactions.get(&transaction.id) {
-            let amount = related_transactions[0].amount.unwrap();
-            self.held -= amount;
-            self.total -= amount;
-            self.locked = true;
-        } else {
-            return Err(TransactionError {
-                error_type: TransactionErrorTypes::InvalidIdReferenced,
-                transaction: transaction,
-                client: self,
-            });
+            if related_transactions[related_transactions.len() - 1].transaction_type
+                == TransactionType::Dispute
+            {
+                let amount = related_transactions[0].amount.unwrap();
+                self.held -= amount;
+                self.total -= amount;
+                self.locked = true;
+            }
         }
         self.log_transaction(transaction);
         Ok(self)
