@@ -58,6 +58,13 @@ pub fn initialize_client(transaction: Transaction) -> Result<Client, Transaction
         locked: false,
         transactions: BTreeMap::new(),
     };
+    if transaction.transaction_type != TransactionType::Deposit {
+        return Err(TransactionError {
+            error_type: TransactionErrorTypes::FirstTransactionNotDeposit,
+            transaction: transaction,
+            client: client,
+        });
+    }
     Ok(client.apply_transaction(transaction)?)
 }
 
