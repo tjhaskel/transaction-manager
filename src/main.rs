@@ -1,4 +1,5 @@
 use std::env;
+use std::io;
 
 use transaction_manager::transaction_manager::*;
 
@@ -9,7 +10,7 @@ fn main() {
     if args.len() > 1 {
         let transaction_file_path = &args[1];
 
-        if let Err(e) = process_transactions(transaction_file_path) {
+        if let Err(e) = process_transactions(io::stdout(), transaction_file_path) {
             println!(
                 "Could not process transactions from {}:\n\t{}",
                 transaction_file_path, e

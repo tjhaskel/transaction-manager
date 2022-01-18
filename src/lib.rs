@@ -1,5 +1,5 @@
 #![warn(missing_docs)]
-#![warn(missing_doc_code_examples)]
+#![warn(rustdoc::missing_doc_code_examples)]
 
 //! transaction-manager is a simple utility to read a list of transactions and output the state of client accounts after all transactions are applied.
 //!
@@ -30,6 +30,3 @@ pub mod transaction_error;
 
 /// Controller module that performs business logic based on input transactions and modifies client accounts accordingly.
 pub mod transaction_manager;
-
-#[cfg(test)]
-mod tests;

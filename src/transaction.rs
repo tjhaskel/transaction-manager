@@ -17,7 +17,7 @@ pub enum TransactionType {
 }
 
 /// A transaction has a type, client id, transaction id, and optional amount.
-#[derive(Clone, Debug, Deserialize)]
+#[derive(Clone, Debug, Deserialize, PartialEq)]
 pub struct Transaction {
     /// Transaction type
     #[serde(rename = "type")]

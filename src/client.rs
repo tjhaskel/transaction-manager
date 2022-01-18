@@ -1,5 +1,5 @@
 use serde::{Serialize, Serializer};
-use std::collections::HashMap;
+use std::collections::BTreeMap;
 use std::vec::Vec;
 
 use crate::transaction::*;
@@ -14,25 +14,41 @@ pub struct Client {
 
     /// Funds available for withdrawal.
     #[serde(serialize_with = "four_decimal_serializer")]
-    available: f64,
+    pub available: f64,
 
     /// Funds held in dispute.
     #[serde(serialize_with = "four_decimal_serializer")]
-    held: f64,
+    pub held: f64,
 
     /// Total funds in account.
     #[serde(serialize_with = "four_decimal_serializer")]
-    total: f64,
+    pub total: f64,
 
     /// Locked is true if a chargeback has been issued.
-    locked: bool,
+    pub locked: bool,
 
     /// A log of prevous transactions, grouped by transaction ID.
     #[serde(skip_serializing)]
-    transactions: HashMap<u32, Vec<Transaction>>,
+    pub transactions: BTreeMap<u32, Vec<Transaction>>,
 }
 
-/// Create an new client with default settings, then apply their first transation.
+/// Create a new client with default settings, then apply their first transation.
+/// ```
+/// use transaction_manager::transaction::*;
+/// use transaction_manager::client::*;
+/// let client = initialize_client(Transaction {
+///     transaction_type: TransactionType::Deposit,
+///     client_id: 0,
+///     id: 0,
+///     amount: Some(1.2)
+/// }).unwrap();
+/// assert_eq!(client.id, 0);
+/// assert_eq!(client.available, 1.2);
+/// assert_eq!(client.held, 0.0);
+/// assert_eq!(client.total, 1.2);
+/// assert_eq!(client.locked, false);
+/// assert_eq!(client.transactions[&0][0].amount, Some(1.2));
+/// ```
 pub fn initialize_client(transaction: Transaction) -> Result<Client, TransactionError> {
     let client = Client {
         id: transaction.client_id,
@@ -40,7 +56,7 @@ pub fn initialize_client(transaction: Transaction) -> Result<Client, Transaction
         held: 0.0,
         total: 0.0,
         locked: false,
-        transactions: HashMap::new(),
+        transactions: BTreeMap::new(),
     };
     Ok(client.apply_transaction(transaction)?)
 }
@@ -48,6 +64,28 @@ pub fn initialize_client(transaction: Transaction) -> Result<Client, Transaction
 impl Client {
     /// Try to apply the given tranasaction to the client, and if successful return the updated client.
     /// May produce a TransactionError if the transaction breaks any rules.
+    /// ```
+    /// use transaction_manager::transaction::*;
+    /// use transaction_manager::client::*;
+    /// let client = initialize_client(Transaction {
+    ///     transaction_type: TransactionType::Deposit,
+    ///     client_id: 0,
+    ///     id: 0,
+    ///     amount: Some(1.2)
+    /// }).unwrap();
+    ///
+    /// let client = client.apply_transaction(Transaction {
+    /// transaction_type: TransactionType::Deposit,
+    /// client_id: 0,
+    /// id: 1,
+    /// amount: Some(1.3)}).unwrap();
+    /// assert_eq!(client.id, 0);
+    /// assert_eq!(client.available, 2.5);
+    /// assert_eq!(client.held, 0.0);
+    /// assert_eq!(client.total, 2.5);
+    /// assert_eq!(client.locked, false);
+    /// assert_eq!(client.transactions[&1][0].amount, Some(1.3));
+    /// ```
     pub fn apply_transaction(
         mut self,
         transaction: Transaction,
@@ -79,8 +117,8 @@ impl Client {
                     client: self,
                 });
             }
-            self.available += amount;
-            self.total += amount;
+            self.available = round_to_four_decimals(self.available + amount);
+            self.total = round_to_four_decimals(self.total + amount);
         } else {
             return Err(TransactionError {
                 error_type: TransactionErrorTypes::MissingRequiredAmount,
@@ -109,8 +147,8 @@ impl Client {
                     client: self,
                 });
             }
-            self.available -= amount;
-            self.total -= amount;
+            self.available = round_to_four_decimals(self.available - amount);
+            self.total = round_to_four_decimals(self.total - amount);
         } else {
             return Err(TransactionError {
                 error_type: TransactionErrorTypes::MissingRequiredAmount,
@@ -134,8 +172,8 @@ impl Client {
         }
         if let Some(related_transactions) = self.transactions.get(&transaction.id) {
             let amount = related_transactions[0].amount.unwrap();
-            self.available -= amount;
-            self.held += amount;
+            self.available = round_to_four_decimals(self.available - amount);
+            self.held = round_to_four_decimals(self.held + amount);
         }
         self.log_transaction(transaction);
         Ok(self)
@@ -156,8 +194,8 @@ impl Client {
                 == TransactionType::Dispute
             {
                 let amount = related_transactions[0].amount.unwrap();
-                self.held -= amount;
-                self.available += amount;
+                self.held = round_to_four_decimals(self.held - amount);
+                self.available = round_to_four_decimals(self.available + amount);
             }
         }
         self.log_transaction(transaction);
@@ -179,8 +217,8 @@ impl Client {
                 == TransactionType::Dispute
             {
                 let amount = related_transactions[0].amount.unwrap();
-                self.held -= amount;
-                self.total -= amount;
+                self.held = round_to_four_decimals(self.held - amount);
+                self.total = round_to_four_decimals(self.total - amount);
                 self.locked = true;
             }
         }
@@ -198,10 +236,171 @@ impl Client {
     }
 }
 
+/// Rounds any f64 to four decimal places
+fn round_to_four_decimals(n: f64) -> f64 {
+    (n * 10000.0).round() / 10000.0
+}
+
 /// When serializing funds, attempt to round to four decimal places.
 fn four_decimal_serializer<S>(n: &f64, s: S) -> Result<S::Ok, S::Error>
 where
     S: Serializer,
 {
-    s.serialize_f64((n * 1000.0).round() / 1000.0)
+    s.serialize_f64(round_to_four_decimals(*n))
+}
+
+#[test]
+fn test_deposit() {
+    let client = initialize_client(Transaction {
+        transaction_type: TransactionType::Deposit,
+        client_id: 0,
+        id: 0,
+        amount: Some(1.2),
+    })
+    .unwrap();
+    let client = client
+        .apply_deposit(Transaction {
+            transaction_type: TransactionType::Deposit,
+            client_id: 0,
+            id: 1,
+            amount: Some(1.3),
+        })
+        .unwrap();
+    assert_eq!(client.available, 2.5);
+    assert_eq!(client.held, 0.0);
+    assert_eq!(client.total, 2.5);
+    assert_eq!(client.locked, false);
+}
+
+#[test]
+fn test_withdrawal() {
+    let client = initialize_client(Transaction {
+        transaction_type: TransactionType::Deposit,
+        client_id: 0,
+        id: 0,
+        amount: Some(1.2),
+    })
+    .unwrap();
+    let client = client
+        .apply_withdrawal(Transaction {
+            transaction_type: TransactionType::Withdrawal,
+            client_id: 0,
+            id: 1,
+            amount: Some(1.1),
+        })
+        .unwrap();
+    assert_eq!(client.available, 0.1);
+    assert_eq!(client.held, 0.0);
+    assert_eq!(client.total, 0.1);
+    assert_eq!(client.locked, false);
+}
+
+#[test]
+fn test_dispute() {
+    let client = initialize_client(Transaction {
+        transaction_type: TransactionType::Deposit,
+        client_id: 0,
+        id: 0,
+        amount: Some(1.2),
+    })
+    .unwrap();
+    let client = client
+        .apply_dispute(Transaction {
+            transaction_type: TransactionType::Dispute,
+            client_id: 0,
+            id: 0,
+            amount: None,
+        })
+        .unwrap();
+    assert_eq!(client.available, 0.0);
+    assert_eq!(client.held, 1.2);
+    assert_eq!(client.total, 1.2);
+    assert_eq!(client.locked, false);
+}
+
+#[test]
+fn test_resolve() {
+    let client = initialize_client(Transaction {
+        transaction_type: TransactionType::Deposit,
+        client_id: 0,
+        id: 0,
+        amount: Some(1.2),
+    })
+    .unwrap();
+    let client = client
+        .apply_dispute(Transaction {
+            transaction_type: TransactionType::Dispute,
+            client_id: 0,
+            id: 0,
+            amount: None,
+        })
+        .unwrap();
+    let client = client
+        .apply_resolve(Transaction {
+            transaction_type: TransactionType::Resolve,
+            client_id: 0,
+            id: 0,
+            amount: None,
+        })
+        .unwrap();
+    assert_eq!(client.available, 1.2);
+    assert_eq!(client.held, 0.0);
+    assert_eq!(client.total, 1.2);
+    assert_eq!(client.locked, false);
+}
+
+#[test]
+fn test_chargeback() {
+    let client = initialize_client(Transaction {
+        transaction_type: TransactionType::Deposit,
+        client_id: 0,
+        id: 0,
+        amount: Some(1.2),
+    })
+    .unwrap();
+    let client = client
+        .apply_dispute(Transaction {
+            transaction_type: TransactionType::Dispute,
+            client_id: 0,
+            id: 0,
+            amount: None,
+        })
+        .unwrap();
+    let client = client
+        .apply_chargeback(Transaction {
+            transaction_type: TransactionType::Chargeback,
+            client_id: 0,
+            id: 0,
+            amount: None,
+        })
+        .unwrap();
+    assert_eq!(client.available, 0.0);
+    assert_eq!(client.held, 0.0);
+    assert_eq!(client.total, 0.0);
+    assert_eq!(client.locked, true);
+}
+
+#[test]
+fn test_log_transaction() {
+    let client = initialize_client(Transaction {
+        transaction_type: TransactionType::Deposit,
+        client_id: 0,
+        id: 0,
+        amount: Some(1.2),
+    })
+    .unwrap();
+    let transaction_one = Transaction {
+        transaction_type: TransactionType::Dispute,
+        client_id: 0,
+        id: 0,
+        amount: None,
+    };
+    let transaction_two = transaction_one.clone();
+    let client = client.apply_dispute(transaction_one).unwrap();
+    assert_eq!(client.transactions[&0][1], transaction_two);
+}
+
+#[test]
+fn test_round_to_four_decimals() {
+    assert_eq!(round_to_four_decimals(0.1234001), 0.1234);
 }
